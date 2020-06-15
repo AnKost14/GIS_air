@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1, maximum-scale=1,user-scalable=no"
+    />
+
+    <title>Атлас "Воздушный транспорт России"</title>
+
+    <style>
+      html,
+      body,
+				#viewDiv {
+			padding: 0;
+			margin: 0;
+			height: 100%;
+			width: 100%;
+			overflow: hidden;
+			}
+	            #topbar {
+                background: #fff;
+                padding: 10px;
+            }
+            .action-button {
+                font-size: 16px;
+                background-color: transparent;
+                border: 1px solid #D3D3D3;
+                color: #6e6e6e;
+                height: 32px;
+                width: 32px;
+                text-align: center;
+                box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+            }
+
+            .action-button:hover,
+            .action-button:focus {
+                background: #0079c1;
+                color: #e4e4e4;
+            }
+
+            .active {
+                background: #0079c1;
+                color: #e4e4e4;
+            }
+			
+			.title{
+			font-size: 20px;
+			padding: 2px;
+			text-align: center;
+			font-family: Lucida Sans Unicode;
+			}	
+	
+
+
+    .my_modal
+	{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,0.5);z-index:1050;display:none;margin:0;padding:0;}
+	
+	.my_modal:target
+	{display:block;overflow-y:auto;}
+	
+	.my_modal-dialog
+	{position:relative;width:auto;margin:10px;}
+	
+	@media (min-width:576px){.my_modal-dialog{max-width:460px;margin:30px auto;}}
+	
+	.my_modal-content
+	{position:relative;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;
+	-ms-flex-direction:column;flex-direction:column;background-color:#fff;-webkit-background-clip:padding-box;background-clip:padding-box;border:1px solid rgba(0,0,0,.2)
+	;border-radius:6px;outline:0;}
+	
+	@media (min-width:768px){.my_modal-content{-webkit-box-shadow:0 5px 15px rgba(0,0,0,.5);box-shadow:0 5px 15px rgba(0,0,0,.5);}}
+	
+	.my_modal-header
+	{display:block;padding:14px 14px 4px;}
+	
+	.my_modal-title
+	{margin-top:0;margin-bottom:0;line-height:1.5;font-size:1.25rem;font-weight:500;border-bottom:1px solid #d4d4d4;}
+	
+	.close
+	{padding:1px 5px 0;border:1px solid #000;border-radius:50%;
+	font-family:sans-serif;font-size:24px;font-weight:700;line-height:1;
+	color:#000;text-shadow:0 1px 0 #fff;opacity:.5;text-decoration:none;
+	top:4px;right:4px;position:absolute;}
+	
+	.close:focus,
+	
+	.close:hover{color:#000;text-decoration:none;cursor:pointer;opacity:.75;}
+	
+	.my_modal-body
+	{position:relative;-webkit-box-flex:1;-webkit-flex:1 1 auto;-ms-flex:1 1 auto;flex:1 1 auto;padding:15px;overflow:auto;}
+    </style>
+
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.15/esri/themes/light/main.css"
+    />
+    <script src="https://js.arcgis.com/4.15/"></script>
+
+    <script>
+      require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/GroupLayer",
+        "esri/layers/MapImageLayer",
+        "esri/widgets/LayerList",
+		"esri/widgets/Home",
+		"esri/widgets/ScaleBar",
+		"esri/widgets/Legend",
+		"esri/layers/FeatureLayer",
+		"esri/widgets/DistanceMeasurement2D", "esri/widgets/AreaMeasurement2D", "esri/core/watchUtils", "esri/views/2d/draw/Draw", "esri/Graphic", "esri/tasks/support/Query" 
+
+      ], function(Map, MapView, GroupLayer, MapImageLayer, LayerList, Home, ScaleBar, Legend, FeatureLayer, DistanceMeasurement2D, AreaMeasurement2D, watchUtils, Draw, Graphic,
+		    Query) {      
+
+		var activeWidget = null;
+        var obzor = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Obzornaya_karta/MapServer",
+          title: "Обзорная карта"
+        });
+
+        var infras = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Infrastruktura/MapServer",
+          title: "Инфраструктура аэропортов",
+          visible: false
+        });
+
+		var strukt = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Struktura/MapServer",
+          title: "Структура перевозок",
+          visible: false
+        });
+		
+		var passazh = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Passazhir/MapServer",
+          title: "Пассажиропоток",
+          visible: false
+        });
+		
+		var line1 = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Line/MapServer",
+          title: "Линии перевозок",
+          visible: false
+        });
+		
+		var orto = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Orto_line/MapServer",
+          title: "Ортогональные линии перевозок",
+          visible: false
+        });
+		
+		var oldnew = new MapImageLayer({
+          url:
+            "https://maps.psu.ru:6443/arcgis/rest/services/air_gis/Old_new/MapServer",
+          title: "Закрытые и новые аэропорты",
+          visible: false
+        });
+		
+		
+        // Create GroupLayer with the two MapImageLayers created above
+        // as children layers.
+
+        var airGroupLayer = new GroupLayer({
+          title: "Атлас воздушного транспорта",
+          visible: true,
+          visibilityMode: "exclusive",
+          layers: [obzor, infras, strukt, passazh, line1, orto, oldnew],
+          opacity: 0.85
+        });
+
+        // Create a map and add the group layer to it
+
+        var map = new Map({
+          basemap: "osm",
+          layers: [airGroupLayer]
+        });
+
+        // Add the map to a MapView
+
+        var view = new MapView({
+          center: [56, 58],
+          zoom: 5,
+          container: "viewDiv",
+          map: map
+        });
+		
+
+		
+		//Кнопка домашнего экстента
+        var homeWidget = new Home({
+             view: view
+        });
+        view.ui.add(homeWidget, "top-left");
+		
+		//Масштабная линейка
+        var scaleBar = new ScaleBar({
+            view: view,
+            unit: "metric",
+            style: "ruler"
+            });
+        view.ui.add(scaleBar, {
+			position: "bottom-right"
+            });
+				
+		//Виджет легенды
+        var legend = new Legend({
+            view: view,
+
+            });
+            view.ui.add(legend, "bottom-left");
+			
+
+		
+		let template = {
+            title: "Информация об аэропорте",
+            content: [{
+                        type: "fields",
+                        fieldInfos: [{
+                            fieldName: "name",
+                            label: "Название",
+                            visible: true
+						}, {
+                            fieldName: "rename",
+                            label: "Дополнительное название (2019 год)",
+                            visible: true
+                        }, {
+                            fieldName: "city",
+                            label: "Город",
+                            visible: true
+                        }, {
+						    fieldName: "prinadl",
+                            label: "Управляющая компания",
+                            visible: true
+                        }, {
+                            fieldName: "passengers",
+                            label: "Пассажиропоток в 2017 г., чел.",
+                            visible: true
+                        }, {
+							fieldName: "pass2019",
+                            label: "Пассажиропоток в 2019 г., чел.",
+                            visible: true
+                        }, {
+						    fieldName: "grow",
+                            label: "Рост пассажиропотока в 2017-2019 гг., %.",
+                            visible: true
+                        }, {
+                            fieldName: "IATA_code",
+                            label: "Код IATA",
+                            visible: true
+                        }, {
+						    fieldName: "rang",
+                            label: "Место в национальной опорной сети",
+                            visible: true
+                        }, {
+						    fieldName: "class",
+                            label: "Класс аэровокзального комплекса",
+                            visible: true
+						}, {
+							fieldName: "prinadl",
+                            label: "Управляющая компания",
+                            visible: true
+                        }, {
+                            fieldName: "all_",
+                            label: "Количество всех направлений",
+                            visible: true
+						}, {
+							fieldName: "foreign",
+                            label: "Количество международных направлений",
+                            visible: true
+						}, {
+							fieldName: "country",
+                            label: "Число направлений внутри РФ",
+                            visible: true
+						}, {
+							fieldName: "region",
+                            label: "Количество направлений внутри региона",
+                            visible: true
+                        }]
+                    }]
+                }
+				
+		const air1 = new FeatureLayer({
+            url: "https://services6.arcgis.com/NYUrRU2t5NQj1FiX/arcgis/rest/services/air_spravka/FeatureServer",
+            outFields:["*"],
+            title: "Справочная информация",
+            popupTemplate: template,
+			visible: false,
+			legendEnabled: false
+            });
+		map.add(air1);
+		
+		const air_text = new FeatureLayer({
+            url: "https://services6.arcgis.com/NYUrRU2t5NQj1FiX/arcgis/rest/services/air_text/FeatureServer",
+            title: "Названия аэропортов",
+			visible: true,
+			legendEnabled: false
+            });
+		map.add(air_text);
+		
+		const city_text = new FeatureLayer({
+            url: "https://services6.arcgis.com/NYUrRU2t5NQj1FiX/arcgis/rest/services/city_text/FeatureServer",
+            title: "Названия городов",
+			visible: false,
+			legendEnabled: false
+            });
+		map.add(city_text);
+		
+		const air_new = new FeatureLayer({
+            url: "https://services6.arcgis.com/NYUrRU2t5NQj1FiX/arcgis/rest/services/air_new/FeatureServer",
+            title: "Новые названия аэропортов",
+			visible: false,
+			legendEnabled: false
+            });
+		map.add(air_new);
+		
+		const iata = new FeatureLayer({
+            url: "https://services6.arcgis.com/NYUrRU2t5NQj1FiX/arcgis/rest/services/kod/FeatureServer",
+            title: "Код ИАТА",
+			visible: false,
+			legendEnabled: false
+            });
+		map.add(iata);
+
+        // Creates actions in the LayerList.
+
+        function defineActions(event) {
+          // The event object contains an item property.
+          // is is a ListItem referencing the associated layer
+          // and other properties. You can control the visibility of the
+          // item, its title, and actions using this object.
+
+          var item = event.item;
+
+          if (item.title === "Атлас воздушного транспорта") {
+            // An array of objects defining actions to place in the LayerList.
+            // By making this array two-dimensional, you can separate similar
+            // actions into separate groups with a breaking line.
+
+            item.actionsSections = [
+              [
+                {
+                  title: "Go to full extent",
+                  className: "esri-icon-zoom-out-fixed",
+                  id: "full-extent"
+                },
+                {
+                  title: "Layer information",
+                  className: "esri-icon-description",
+                  id: "information"
+                }
+              ],
+              [
+                {
+                  title: "Increase opacity",
+                  className: "esri-icon-up",
+                  id: "increase-opacity"
+                },
+                {
+                  title: "Decrease opacity",
+                  className: "esri-icon-down",
+                  id: "decrease-opacity"
+                }
+              ]
+            ];
+          }
+        }
+
+        view.when(function() {
+          // Create the LayerList widget with the associated actions
+          // and add it to the top-right corner of the view.
+
+          var layerList = new LayerList({
+            view: view,
+            // executes for each ListItem in the LayerList
+            listItemCreatedFunction: defineActions
+          });
+
+          // Event listener that fires each time an action is triggered
+
+          layerList.on("trigger-action", function(event) {
+            // The layer visible in the view at the time of the trigger.
+            var visibleLayer = obzor.visible ? obzor : infras;
+
+            // Capture the action id.
+            var id = event.action.id;
+
+            if (id === "full-extent") {
+              // if the full-extent action is triggered then navigate
+              // to the full extent of the visible layer
+              view.goTo(visibleLayer.fullExtent).catch(function(error) {
+                if (error.name != "AbortError") {
+                  console.error(error);
+                }
+              });
+            } else if (id === "information") {
+              // if the information action is triggered, then
+              // open the item details page of the service layer
+              window.open(visibleLayer.url);
+            } else if (id === "increase-opacity") {
+              // if the increase-opacity action is triggered, then
+              // increase the opacity of the GroupLayer by 0.25
+
+              if (airGroupLayer.opacity < 1) {
+                airGroupLayer.opacity += 0.25;
+              }
+            } else if (id === "decrease-opacity") {
+              // if the decrease-opacity action is triggered, then
+              // decrease the opacity of the GroupLayer by 0.25
+
+              if (airGroupLayer.opacity > 0) {
+                airGroupLayer.opacity -= 0.25;
+              }
+            }
+          });
+
+          // Add widget to the top right corner of the view
+          view.ui.add(layerList, "top-right");
+        });
+	//Добавление виджета измерительных инструментов
+                view.ui.add("topbar", "top-left");
+                
+                document.getElementById("distanceButton").addEventListener("click",
+                function () {
+                    setActiveWidget(null);
+                    if (!this.classList.contains('active')) {
+                        setActiveWidget('distance');
+                    } else {
+                        setActiveButton(null);
+                    }
+                });
+
+                document.getElementById("areaButton").addEventListener("click",
+                function () {
+                    setActiveWidget(null);
+                    if (!this.classList.contains('active')) {
+                        setActiveWidget('area');
+                    } else {
+                        setActiveButton(null);
+                    }
+                });
+
+                function setActiveWidget(type) {
+                    switch (type) {
+                    case "distance":
+                        activeWidget = new DistanceMeasurement2D({
+                            view: view
+                        });
+
+                        // skip the initial 'new measurement' button
+                        activeWidget.viewModel.newMeasurement();
+
+                        view.ui.add(activeWidget, "top-right");
+                        setActiveButton(document.getElementById('distanceButton'));
+                    break;
+                    case "area":
+                        activeWidget = new AreaMeasurement2D({
+                            view: view
+                        });
+
+                        // skip the initial 'new measurement' button
+                        activeWidget.viewModel.newMeasurement();
+
+                        view.ui.add(activeWidget, "top-right");
+                        setActiveButton(document.getElementById('areaButton'));
+                    break;
+                    case null:
+                        if (activeWidget) {
+                            view.ui.remove(activeWidget);
+                            activeWidget.destroy();
+                            activeWidget = null;
+                        }
+                    break;
+                    }	
+                }
+
+                function setActiveButton(selectedButton) {
+                    // focus the view to activate keyboard shortcuts for sketching
+                    view.focus();
+                    var elements = document.getElementsByClassName("active");
+                    for (var i = 0; i < elements.length; i++) {
+                        elements[i].classList.remove("active");
+                    }
+                    if (selectedButton) {
+                        selectedButton.classList.add("active");
+                    }
+                }
+				 
+				 // Remove the default widgets
+                mapView.ui.components = [];
+
+                mapView.when(function() {
+                    view.when(function() {
+                        setup();
+                    });
+                });
+                function setup() {
+                    const extentGraphic = new Graphic({
+                        geometry: null,
+                        symbol: {
+                            type: "simple-fill",
+                            color: [0, 0, 0, 0.5],
+                            outline: null
+                        }
+                    });
+                    mapView.graphics.add(extentGraphic);
+
+                    watchUtils.init(view, "extent", function(extent) {
+                        // Sync the overview map location whenever the 3d view is stationary
+                        mapView.goTo({
+                            center: view.center,
+                            scale:
+                            view.scale *
+                            2 *
+                            Math.max(
+                                view.width / mapView.width,
+                                view.height / mapView.height
+                            )
+                        });
+
+                        extentGraphic.geometry = extent;
+                    });
+                } 
+
+
+      });
+    </script>
+  </head>
+
+
+  <body>
+  
+   <div id = "wrap">
+<header style="display: inline-flex; width: 100%;">
+<div class = "title" style="width: 80%; float: left;">Атлас воздушного транспорта России</div>
+<div class = "title" style="width: 20%; float: left; font-size: 14px;"><a href="#modal_open" style="position: relative; top: 5px;">О проекте</a></div>
+<div id="modal_open" class="my_modal">
+  <div class="my_modal-dialog">
+    <div class="my_modal-content">
+      <div class="my_modal-header">
+        <p class="my_modal-title">О проекте</p>
+        <a href="#" title="Закрыть модальное окно" class="close">×</a>
+      </div>
+      <div class="my_modal-body">    
+        <p>Электронный атлас "Воздушный транспорт России" создан в целях изучения системы воздушного транспорта Российской Федерации с помощью ГИС-технологий.</p>
+  <p>В данном проекте представлен ряд тематических карт, демонстрирующих актуальную ситуацию в пассажирском воздушном транспорте, данные собраны из открытых источников, в частности из реестра Росавиации.</p> 
+  <p>Навигация по картам производится с помощью списка слоёв, дополнительные слои (надписи) включаются отдельно. Справочная информация также активируется с помощью списка слоёв, статистическая информация выводится по нажанитю.</p>
+  <p>Измерения по карте можно произвести с помощью кнопок инструментов в левой части страницы.</p>
+  <p>Информационная система создана в рамках магистерской диссертации. 2020 год, Костылева Анна Дмитриевна.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</header> </div>
+
+<div id="viewDiv"></div>
+	
+	<div id="topbar">
+		       <!-- отключена обзорная карта <div id="overviewDiv"> </div>  -->
+            <button class="action-button esri-icon-minus" id="distanceButton" type="button"
+                title="Измерение расстояний"></button>
+            <button class="action-button esri-icon-polygon" id="areaButton" type="button"
+                title="Измерение площадей"></button>
+			
+        </div>
+  </body>
+</html>
